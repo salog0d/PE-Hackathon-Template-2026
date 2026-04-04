@@ -25,6 +25,7 @@ uv.lock
 
 # pytest
 .pytest_cache/
+.coverage
 
 # OS
 .DS_Store
