@@ -82,7 +82,7 @@ def create_app():
             description: Process is alive
         """
         return jsonify(status="ok")
-    
+
     @app.route("/favicon.ico")
     def favicon():
         return "", 204
