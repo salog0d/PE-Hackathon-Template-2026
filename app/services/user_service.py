@@ -25,7 +25,10 @@ def create(username: str, email: str):
         email=email.strip(),
         created_at=datetime.now(UTC),
     )
-    logger.info("user_created", extra={"user_id": getattr(user, "id", None), "username": username})
+    logger.info(
+        "user_created",
+        extra={"user_id": getattr(user, "id", None), "username": username},
+    )
     return user
 
 

@@ -42,7 +42,11 @@ def create(url_id: int, user_id: int, event_type: str, details: str = None):
     )
     logger.info(
         "event_created",
-        extra={"event_id": getattr(event, "id", None), "url_id": url_id, "user_id": user_id},
+        extra={
+            "event_id": getattr(event, "id", None),
+            "url_id": url_id,
+            "user_id": user_id,
+        },
     )
     return event
 

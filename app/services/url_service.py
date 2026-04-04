@@ -49,7 +49,11 @@ def create(
     )
     logger.info(
         "url_created",
-        extra={"url_id": getattr(url, "id", None), "user_id": user_id, "short_code": short_code},
+        extra={
+            "url_id": getattr(url, "id", None),
+            "user_id": user_id,
+            "short_code": short_code,
+        },
     )
     return url
 
