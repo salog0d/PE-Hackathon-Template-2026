@@ -1,3 +1,5 @@
+from importlib import import_module
+
 from dotenv import load_dotenv
 from flasgger import Swagger
 from flask import Flask, jsonify
@@ -15,7 +17,7 @@ def create_app():
 
     init_db(app)
 
-    from app import models  
+    import_module("app.models")
 
     register_routes(app)
 
