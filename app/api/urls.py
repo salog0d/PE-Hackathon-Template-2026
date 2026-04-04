@@ -1,7 +1,11 @@
+import logging
+
 from flask import Blueprint, jsonify, request
 
 from app.services import url_service
 from app.utils.serializers import serialize_url
+
+logger = logging.getLogger(__name__)
 
 urls_bp = Blueprint("urls", __name__, url_prefix="/urls")
 
@@ -25,8 +29,14 @@ def list_urls():
     """
     user_id = request.args.get("user_id", type=int)
     if user_id:
-        return jsonify([serialize_url(u) for u in url_service.get_by_user(user_id)])
-    return jsonify([serialize_url(u) for u in url_service.get_all()])
+        urls = url_service.get_by_user(user_id)
+        logger.info(
+            "urls_listed_by_user", extra={"user_id": user_id, "count": len(urls)}
+        )
+        return jsonify([serialize_url(u) for u in urls])
+    urls = url_service.get_all()
+    logger.info("urls_listed", extra={"count": len(urls)})
+    return jsonify([serialize_url(u) for u in urls])
 
 
 @urls_bp.get("/<int:url_id>")
@@ -49,6 +59,7 @@ def get_url(url_id):
     """
     url = url_service.get_by_id(url_id)
     if not url:
+        logger.info("url_not_found", extra={"url_id": url_id})
         return jsonify(error="Not found"), 404
     return jsonify(serialize_url(url))
 
@@ -73,6 +84,7 @@ def get_by_short_code(short_code):
     """
     url = url_service.get_by_short_code(short_code)
     if not url:
+        logger.info("url_not_found_by_code", extra={"short_code": short_code})
         return jsonify(error="Not found"), 404
     return jsonify(serialize_url(url))
 
@@ -112,10 +124,16 @@ def create_url():
         description: Validation error
     """
     data = request.get_json()
+    logger.info(
+        "url_create_requested",
+        extra={"user_id": data.get("user_id"), "short_code": data.get("short_code")},
+    )
     try:
         url = url_service.create(**data)
     except ValueError as e:
+        logger.warning("url_create_validation_failed", extra={"reason": str(e)})
         return jsonify(error=str(e)), 400
+    logger.info("url_create_succeeded", extra={"url_id": url.id})
     return jsonify(serialize_url(url)), 201
 
 
@@ -154,12 +172,20 @@ def update_url(url_id):
         description: URL not found
     """
     data = request.get_json()
+    logger.info(
+        "url_update_requested", extra={"url_id": url_id, "fields": list(data.keys())}
+    )
     try:
         updated = url_service.update(url_id, **data)
     except ValueError as e:
+        logger.warning(
+            "url_update_validation_failed", extra={"url_id": url_id, "reason": str(e)}
+        )
         return jsonify(error=str(e)), 400
     if not updated:
+        logger.info("url_update_not_found", extra={"url_id": url_id})
         return jsonify(error="Not found"), 404
+    logger.info("url_update_succeeded", extra={"url_id": url_id})
     return jsonify(serialize_url(url_service.get_by_id(url_id)))
 
 
@@ -181,6 +207,9 @@ def delete_url(url_id):
       404:
         description: URL not found
     """
+    logger.info("url_delete_requested", extra={"url_id": url_id})
     if not url_service.delete(url_id):
+        logger.info("url_delete_not_found", extra={"url_id": url_id})
         return jsonify(error="Not found"), 404
+    logger.info("url_delete_succeeded", extra={"url_id": url_id})
     return "", 204

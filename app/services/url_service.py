@@ -1,6 +1,9 @@
+import logging
 from datetime import UTC, datetime
 
 from app.repositories import url_repository
+
+logger = logging.getLogger(__name__)
 
 
 def get_all():
@@ -32,8 +35,10 @@ def create(
         raise ValueError("short_code is required")
     if not original_url or not original_url.strip():
         raise ValueError("original_url is required")
+
     now = datetime.now(UTC)
-    return url_repository.create(
+    logger.info("url_creating", extra={"user_id": user_id, "short_code": short_code})
+    url = url_repository.create(
         user_id=user_id,
         short_code=short_code.strip(),
         original_url=original_url.strip(),
@@ -42,6 +47,11 @@ def create(
         created_at=now,
         updated_at=now,
     )
+    logger.info(
+        "url_created",
+        extra={"url_id": url.id, "user_id": user_id, "short_code": short_code},
+    )
+    return url
 
 
 def update(url_id: int, **fields):
@@ -54,8 +64,20 @@ def update(url_id: int, **fields):
     if "original_url" in fields and not fields["original_url"].strip():
         raise ValueError("original_url cannot be empty")
     fields["updated_at"] = datetime.now(UTC)
-    return url_repository.update(url_id, **fields)
+    logger.info("url_updating", extra={"url_id": url_id, "fields": list(fields.keys())})
+    result = url_repository.update(url_id, **fields)
+    if result:
+        logger.info("url_updated", extra={"url_id": url_id})
+    else:
+        logger.info("url_update_no_rows", extra={"url_id": url_id})
+    return result
 
 
 def delete(url_id: int):
-    return url_repository.delete(url_id)
+    logger.info("url_deleting", extra={"url_id": url_id})
+    result = url_repository.delete(url_id)
+    if result:
+        logger.info("url_deleted", extra={"url_id": url_id})
+    else:
+        logger.info("url_delete_no_rows", extra={"url_id": url_id})
+    return result

@@ -1,7 +1,11 @@
+import logging
+
 from flask import Blueprint, jsonify, request
 
 from app.services import user_service
 from app.utils.serializers import serialize_user
+
+logger = logging.getLogger(__name__)
 
 users_bp = Blueprint("users", __name__, url_prefix="/users")
 
@@ -17,7 +21,9 @@ def list_users():
       200:
         description: List of users
     """
-    return jsonify([serialize_user(u) for u in user_service.get_all()])
+    users = user_service.get_all()
+    logger.info("users_listed", extra={"count": len(users)})
+    return jsonify([serialize_user(u) for u in users])
 
 
 @users_bp.get("/<int:user_id>")
@@ -40,6 +46,7 @@ def get_user(user_id):
     """
     user = user_service.get_by_id(user_id)
     if not user:
+        logger.info("user_not_found", extra={"user_id": user_id})
         return jsonify(error="Not found"), 404
     return jsonify(serialize_user(user))
 
@@ -72,10 +79,13 @@ def create_user():
         description: Validation error
     """
     data = request.get_json()
+    logger.info("user_create_requested", extra={"username": data.get("username")})
     try:
         user = user_service.create(**data)
     except ValueError as e:
+        logger.warning("user_create_validation_failed", extra={"reason": str(e)})
         return jsonify(error=str(e)), 400
+    logger.info("user_create_succeeded", extra={"user_id": user.id})
     return jsonify(serialize_user(user)), 201
 
 
@@ -110,12 +120,21 @@ def update_user(user_id):
         description: User not found
     """
     data = request.get_json()
+    logger.info(
+        "user_update_requested", extra={"user_id": user_id, "fields": list(data.keys())}
+    )
     try:
         updated = user_service.update(user_id, **data)
     except ValueError as e:
+        logger.warning(
+            "user_update_validation_failed",
+            extra={"user_id": user_id, "reason": str(e)},
+        )
         return jsonify(error=str(e)), 400
     if not updated:
+        logger.info("user_update_not_found", extra={"user_id": user_id})
         return jsonify(error="Not found"), 404
+    logger.info("user_update_succeeded", extra={"user_id": user_id})
     return jsonify(serialize_user(user_service.get_by_id(user_id)))
 
 
@@ -137,6 +156,9 @@ def delete_user(user_id):
       404:
         description: User not found
     """
+    logger.info("user_delete_requested", extra={"user_id": user_id})
     if not user_service.delete(user_id):
+        logger.info("user_delete_not_found", extra={"user_id": user_id})
         return jsonify(error="Not found"), 404
+    logger.info("user_delete_succeeded", extra={"user_id": user_id})
     return "", 204

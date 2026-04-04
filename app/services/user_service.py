@@ -1,6 +1,9 @@
+import logging
 from datetime import UTC, datetime
 
 from app.repositories import user_repository
+
+logger = logging.getLogger(__name__)
 
 
 def get_all():
@@ -16,11 +19,14 @@ def create(username: str, email: str):
         raise ValueError("username is required")
     if not email or not email.strip():
         raise ValueError("email is required")
-    return user_repository.create(
+    logger.info("user_creating", extra={"username": username})
+    user = user_repository.create(
         username=username.strip(),
         email=email.strip(),
         created_at=datetime.now(UTC),
     )
+    logger.info("user_created", extra={"user_id": user.id, "username": username})
+    return user
 
 
 def update(user_id: int, **fields):
@@ -32,8 +38,22 @@ def update(user_id: int, **fields):
         raise ValueError("username cannot be empty")
     if "email" in fields and not fields["email"].strip():
         raise ValueError("email cannot be empty")
-    return user_repository.update(user_id, **fields)
+    logger.info(
+        "user_updating", extra={"user_id": user_id, "fields": list(fields.keys())}
+    )
+    result = user_repository.update(user_id, **fields)
+    if result:
+        logger.info("user_updated", extra={"user_id": user_id})
+    else:
+        logger.info("user_update_no_rows", extra={"user_id": user_id})
+    return result
 
 
 def delete(user_id: int):
-    return user_repository.delete(user_id)
+    logger.info("user_deleting", extra={"user_id": user_id})
+    result = user_repository.delete(user_id)
+    if result:
+        logger.info("user_deleted", extra={"user_id": user_id})
+    else:
+        logger.info("user_delete_no_rows", extra={"user_id": user_id})
+    return result

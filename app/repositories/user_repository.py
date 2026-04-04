@@ -1,4 +1,8 @@
+import logging
+
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 def get_all():
@@ -10,14 +14,23 @@ def get_by_id(user_id: int):
 
 
 def create(username: str, email: str, created_at) -> User:
-    return User.create(username=username, email=email, created_at=created_at)
+    logger.debug("db_user_insert", extra={"username": username})
+    user = User.create(username=username, email=email, created_at=created_at)
+    logger.debug("db_user_inserted", extra={"user_id": user.id})
+    return user
 
 
 def update(user_id: int, **fields) -> bool:
+    logger.debug(
+        "db_user_update", extra={"user_id": user_id, "fields": list(fields.keys())}
+    )
     rows = User.update(**fields).where(User.id == user_id).execute()
+    logger.debug("db_user_updated", extra={"user_id": user_id, "rows_affected": rows})
     return rows > 0
 
 
 def delete(user_id: int) -> bool:
+    logger.debug("db_user_delete", extra={"user_id": user_id})
     rows = User.delete().where(User.id == user_id).execute()
+    logger.debug("db_user_deleted", extra={"user_id": user_id, "rows_affected": rows})
     return rows > 0

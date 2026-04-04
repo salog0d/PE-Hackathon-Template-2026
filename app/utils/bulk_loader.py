@@ -35,7 +35,8 @@ class BulkLoader:
                 model.insert_many(records).execute()
             total += len(records)
             logger.debug(
-                "inserted %d rows into %s", len(records), model._meta.table_name
+                "db_chunk_inserted",
+                extra={"rows": len(records), "table": model._meta.table_name},
             )
         return total
 
@@ -48,7 +49,7 @@ class BulkLoader:
             return df[["id", "username", "email", "created_at"]]
 
         total = cls._load(filepath, User, transform)
-        logger.info("Loaded %d users", total)
+        logger.info("bulk_users_loaded", extra={"count": total})
         return total
 
     @classmethod
@@ -75,7 +76,7 @@ class BulkLoader:
             ]
 
         total = cls._load(filepath, Url, transform)
-        logger.info("Loaded %d urls", total)
+        logger.info("bulk_urls_loaded", extra={"count": total})
         return total
 
     @classmethod
@@ -88,7 +89,7 @@ class BulkLoader:
             return df[["id", "url_id", "user_id", "event_type", "timestamp", "details"]]
 
         total = cls._load(filepath, Event, transform)
-        logger.info("Loaded %d events", total)
+        logger.info("bulk_events_loaded", extra={"count": total})
         return total
 
     @classmethod
@@ -97,11 +98,11 @@ class BulkLoader:
 
         Returns a summary dict with row counts per model.
         """
-        logger.info("Starting bulk seed load")
+        logger.info("bulk_load_started")
         result = {
             "users": cls.load_users(users_path),
             "urls": cls.load_urls(urls_path),
             "events": cls.load_events(events_path),
         }
-        logger.info("Bulk load complete: %s", result)
+        logger.info("bulk_load_completed", extra={"summary": result})
         return result
