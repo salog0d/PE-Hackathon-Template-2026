@@ -117,6 +117,8 @@ curl http://localhost:5000/urls/
 
 Returns normal data. No Flask restart was required.
 
+Demo video: https://youtu.be/aWo_z5aP880
+
 ---
 
 ## Why this works
