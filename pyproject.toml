@@ -5,7 +5,10 @@ requires-python = ">=3.13"
 dependencies = [
     "faker>=33.0",
     "flask>=3.1",
+    "flasgger>=0.9.7.1",
     "peewee>=3.17",
     "psycopg2-binary>=2.9",
     "python-dotenv>=1.0",
+    "pandas>=2.2",
+    "peewee-migrate>=1.15.0",
 ]
