@@ -24,7 +24,9 @@ def _connect_with_retry():
             db.connect(reuse_if_open=True)
             return
         except OperationalError as exc:
-            logger.warning("DB connect attempt %d/%d failed: %s", attempt, _MAX_RETRIES, exc)
+            logger.warning(
+                "DB connect attempt %d/%d failed: %s", attempt, _MAX_RETRIES, exc
+            )
             if attempt < _MAX_RETRIES:
                 time.sleep(_RETRY_DELAY * attempt)
     # Final attempt — let the exception propagate so Flask returns a 500
@@ -60,6 +62,7 @@ def init_db(app):
         except OperationalError as exc:
             logger.error("DB unavailable: %s", exc)
             from flask import jsonify
+
             return jsonify(status="error", error="database unavailable"), 500
 
     @app.teardown_appcontext

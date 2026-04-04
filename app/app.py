@@ -55,6 +55,8 @@ def create_app():
         result = check_db()
         if result["ok"]:
             return jsonify(status="ok", database="reachable")
-        return jsonify(status="degraded", database="unreachable", error=result["error"]), 503
+        return jsonify(
+            status="degraded", database="unreachable", error=result["error"]
+        ), 503
 
     return app
