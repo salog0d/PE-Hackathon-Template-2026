@@ -4,6 +4,7 @@ Usage:
   python migrate.py run             # apply all pending migrations
   python migrate.py rollback        # revert the last migration
 """
+
 import sys
 
 from dotenv import load_dotenv

@@ -19,7 +19,13 @@ def get_by_user(user_id: int):
     return url_repository.get_by_user(user_id)
 
 
-def create(user_id: int, short_code: str, original_url: str, title: str = None, is_active: bool = True):
+def create(
+    user_id: int,
+    short_code: str,
+    original_url: str,
+    title: str = None,
+    is_active: bool = True,
+):
     if not user_id:
         raise ValueError("user_id is required")
     if not short_code or not short_code.strip():

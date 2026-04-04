@@ -34,12 +34,15 @@ class BulkLoader:
             with db.atomic():
                 model.insert_many(records).execute()
             total += len(records)
-            logger.debug("inserted %d rows into %s", len(records), model._meta.table_name)
+            logger.debug(
+                "inserted %d rows into %s", len(records), model._meta.table_name
+            )
         return total
 
     @classmethod
     def load_users(cls, filepath: str) -> int:
         """Load users.csv — columns: id, username, email, created_at."""
+
         def transform(df):
             df["created_at"] = pd.to_datetime(df["created_at"])
             return df[["id", "username", "email", "created_at"]]
@@ -51,11 +54,25 @@ class BulkLoader:
     @classmethod
     def load_urls(cls, filepath: str) -> int:
         """Load urls.csv — columns: id, user_id, short_code, original_url, title, is_active, created_at, updated_at."""
+
         def transform(df):
             df["created_at"] = pd.to_datetime(df["created_at"])
             df["updated_at"] = pd.to_datetime(df["updated_at"])
-            df["is_active"] = df["is_active"].map({"True": True, "False": False}).astype(bool)
-            return df[["id", "user_id", "short_code", "original_url", "title", "is_active", "created_at", "updated_at"]]
+            df["is_active"] = (
+                df["is_active"].map({"True": True, "False": False}).astype(bool)
+            )
+            return df[
+                [
+                    "id",
+                    "user_id",
+                    "short_code",
+                    "original_url",
+                    "title",
+                    "is_active",
+                    "created_at",
+                    "updated_at",
+                ]
+            ]
 
         total = cls._load(filepath, Url, transform)
         logger.info("Loaded %d urls", total)
@@ -64,6 +81,7 @@ class BulkLoader:
     @classmethod
     def load_events(cls, filepath: str) -> int:
         """Load events.csv — columns: id, url_id, user_id, event_type, timestamp, details."""
+
         def transform(df):
             df["timestamp"] = pd.to_datetime(df["timestamp"])
             df["details"] = df["details"].where(df["details"].notna(), None)

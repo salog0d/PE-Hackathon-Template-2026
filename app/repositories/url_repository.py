@@ -17,7 +17,15 @@ def get_by_user(user_id: int):
     return list(Url.select().where(Url.user_id == user_id))
 
 
-def create(user_id: int, short_code: str, original_url: str, title: str, is_active: bool, created_at, updated_at) -> Url:
+def create(
+    user_id: int,
+    short_code: str,
+    original_url: str,
+    title: str,
+    is_active: bool,
+    created_at,
+    updated_at,
+) -> Url:
     return Url.create(
         user_id=user_id,
         short_code=short_code,

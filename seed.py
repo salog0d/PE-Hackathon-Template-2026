@@ -1,4 +1,5 @@
 """Run with: python seed.py"""
+
 import logging
 
 from app.app import create_app

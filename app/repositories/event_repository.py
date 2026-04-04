@@ -17,7 +17,9 @@ def get_by_user(user_id: int):
     return list(Event.select().where(Event.user_id == user_id))
 
 
-def create(url_id: int, user_id: int, event_type: str, timestamp, details: str = None) -> Event:
+def create(
+    url_id: int, user_id: int, event_type: str, timestamp, details: str = None
+) -> Event:
     return Event.create(
         url_id=url_id,
         user_id=user_id,

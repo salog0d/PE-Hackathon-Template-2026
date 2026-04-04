@@ -30,7 +30,7 @@ from peewee_migrate import Migrator
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
     """Write your migrations here."""
-    
+
     @migrator.create_model
     class BaseModel(pw.Model):
         id = pw.AutoField()
@@ -51,7 +51,9 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
     @migrator.create_model
     class Url(pw.Model):
         id = pw.AutoField()
-        user = pw.ForeignKeyField(column_name='user_id', field='id', model=migrator.orm['users'])
+        user = pw.ForeignKeyField(
+            column_name="user_id", field="id", model=migrator.orm["users"]
+        )
         short_code = pw.CharField(max_length=20, unique=True)
         original_url = pw.CharField(max_length=2048)
         title = pw.CharField(max_length=255, null=True)
@@ -65,8 +67,12 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
     @migrator.create_model
     class Event(pw.Model):
         id = pw.AutoField()
-        url = pw.ForeignKeyField(column_name='url_id', field='id', model=migrator.orm['urls'])
-        user = pw.ForeignKeyField(column_name='user_id', field='id', model=migrator.orm['users'])
+        url = pw.ForeignKeyField(
+            column_name="url_id", field="id", model=migrator.orm["urls"]
+        )
+        user = pw.ForeignKeyField(
+            column_name="user_id", field="id", model=migrator.orm["users"]
+        )
         event_type = pw.CharField(max_length=50)
         timestamp = pw.DateTimeField()
         details = pw.TextField(null=True)
@@ -77,11 +83,11 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake=False):
     """Write your rollback migrations here."""
-    
-    migrator.remove_model('events')
 
-    migrator.remove_model('urls')
+    migrator.remove_model("events")
 
-    migrator.remove_model('users')
+    migrator.remove_model("urls")
 
-    migrator.remove_model('basemodel')
+    migrator.remove_model("users")
+
+    migrator.remove_model("basemodel")
