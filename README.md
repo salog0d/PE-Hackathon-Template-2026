@@ -1,17 +1,15 @@
-# MLH PE Hackathon — Flask + Peewee + PostgreSQL Template
+# URL Shortener API
 
-A minimal hackathon starter template. You get the scaffolding and database wiring — you build the models, routes, and CSV loading logic.
+A production-ready REST API for shortening URLs and tracking click events, built for the MLH PE Hackathon 2026.
 
-**Stack:** Flask · Peewee ORM · PostgreSQL · uv
+**Stack:** Flask 3.1 · Peewee ORM · PostgreSQL · uv · Flasgger (Swagger UI) · Pandas
 
-## **Important**
-
-You need to work with around the seed files that you can find in [MLH PE Hackathon](https://mlh-pe-hackathon.com) platform. This will help you build the schema for the database and have some data to do some testing and submit your project for judging. If you need help with this, reach out on Discord or on the Q&A tab on the platform.
+---
 
 ## Prerequisites
 
-- **uv** — a fast Python package manager that handles Python versions, virtual environments, and dependencies automatically.
-  Install it with:
+- **Python 3.13+** (managed automatically by uv)
+- **uv** — fast Python package manager
   ```bash
   # macOS / Linux
   curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -19,174 +17,342 @@ You need to work with around the seed files that you can find in [MLH PE Hackath
   # Windows (PowerShell)
   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
   ```
-  For other methods see the [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/).
-- PostgreSQL running locally (you can use Docker or a local instance)
+- **PostgreSQL** running locally or via Docker
 
-## uv Basics
-
-`uv` manages your Python version, virtual environment, and dependencies automatically — no manual `python -m venv` needed.
-
-| Command | What it does |
-|---------|--------------|
-| `uv sync` | Install all dependencies (creates `.venv` automatically) |
-| `uv run <script>` | Run a script using the project's virtual environment |
-| `uv add <package>` | Add a new dependency |
-| `uv remove <package>` | Remove a dependency |
+---
 
 ## Quick Start
 
 ```bash
-# 1. Clone the repo
-git clone <repo-url> && cd mlh-pe-hackathon
-
-# 2. Install dependencies
+# 1. Install dependencies
 uv sync
 
-# 3. Create the database
+# 2. Create the database
 createdb hackathon_db
 
-# 4. Configure environment
+# 3. Configure environment
 cp .env.example .env   # edit if your DB credentials differ
 
-# 5. Run the server
+# 4. Run migrations
+python migrate.py run
+
+# 5. (Optional) Seed the database from CSV files
+python seed.py
+
+# 6. Start the server
 uv run run.py
 
-# 6. Verify
+# 7. Verify
 curl http://localhost:5000/health
-# → {"status":"ok"}
+# → {"status": "ok"}
 ```
+
+Swagger UI is available at **http://localhost:5000/apidocs**.
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and adjust as needed:
+
+| Variable            | Default        | Description              |
+|---------------------|----------------|--------------------------|
+| `DATABASE_NAME`     | `hackathon_db` | PostgreSQL database name |
+| `DATABASE_HOST`     | `localhost`    | Database host            |
+| `DATABASE_PORT`     | `5432`         | Database port            |
+| `DATABASE_USER`     | `postgres`     | Database user            |
+| `DATABASE_PASSWORD` | `postgres`     | Database password        |
+| `FLASK_DEBUG`       | `true`         | Enable debug mode        |
+
+---
 
 ## Project Structure
 
 ```
-mlh-pe-hackathon/
+.
 ├── app/
-│   ├── __init__.py          # App factory (create_app)
-│   ├── database.py          # DatabaseProxy, BaseModel, connection hooks
+│   ├── app.py                      # App factory — registers DB, routes, Swagger
+│   ├── main.py                     # WSGI entry point
+│   ├── database/
+│   │   ├── __init__.py             # DatabaseProxy, BaseModel, connection lifecycle
+│   │   └── migrations/
+│   │       └── 001_init.py         # Initial schema migration
 │   ├── models/
-│   │   └── __init__.py      # Import your models here
-│   └── routes/
-│       └── __init__.py      # register_routes() — add blueprints here
-├── .env.example             # DB connection template
-├── .gitignore               # Python + uv gitignore
-├── .python-version          # Pin Python version for uv
-├── pyproject.toml           # Project metadata + dependencies
-├── run.py                   # Entry point: uv run run.py
-└── README.md
+│   │   ├── user.py                 # User model
+│   │   ├── url.py                  # Url model (FK → User)
+│   │   └── event.py                # Event model (FK → Url, User)
+│   ├── repositories/
+│   │   ├── user_repository.py      # DB queries for User
+│   │   ├── url_repository.py       # DB queries for Url
+│   │   └── event_repository.py     # DB queries for Event
+│   ├── services/
+│   │   ├── user_service.py         # Business logic + validation for User
+│   │   ├── url_service.py          # Business logic + validation for Url
+│   │   └── event_service.py        # Business logic + validation for Event
+│   ├── api/
+│   │   ├── __init__.py             # Blueprint registration
+│   │   ├── users.py                # CRUD endpoints for /users
+│   │   ├── urls.py                 # CRUD endpoints for /urls
+│   │   ├── events.py               # CRUD endpoints for /events
+│   │   └── seed.py                 # CSV upload endpoints for /seed
+│   └── utils/
+│       ├── serializers.py          # Model → dict helpers
+│       └── bulk_loader.py          # Pandas-backed CSV bulk importer
+├── tests/
+│   ├── conftest.py                 # Pytest fixtures (app, client, model factories)
+│   ├── test_api_routes.py
+│   ├── test_api_endpoints.py
+│   ├── test_bootstrap.py
+│   ├── test_repositories.py
+│   ├── test_services.py
+│   └── test_utils.py
+├── seeds/
+│   ├── users.csv
+│   ├── urls.csv
+│   └── events.csv
+├── migrate.py                      # Migration CLI
+├── seed.py                         # Seed loader CLI
+├── run.py                          # Dev server entry point
+├── pyproject.toml
+└── .env.example
 ```
 
-## How to Add a Model
+---
 
-1. Create a file in `app/models/`, e.g. `app/models/product.py`:
+## Data Models
 
-```python
-from peewee import CharField, DecimalField, IntegerField
+### User
+| Column       | Type         | Constraints        |
+|--------------|--------------|--------------------|
+| `id`         | AutoField    | PK                 |
+| `username`   | CharField    | max 255, unique    |
+| `email`      | CharField    | max 255, unique    |
+| `created_at` | DateTimeField|                    |
 
-from app.database import BaseModel
+### Url
+| Column         | Type          | Constraints          |
+|----------------|---------------|----------------------|
+| `id`           | AutoField     | PK                   |
+| `user_id`      | ForeignKey    | → users.id           |
+| `short_code`   | CharField     | max 20, unique       |
+| `original_url` | CharField     | max 2048             |
+| `title`        | CharField     | max 255, nullable    |
+| `is_active`    | BooleanField  | default True         |
+| `created_at`   | DateTimeField |                      |
+| `updated_at`   | DateTimeField |                      |
 
+### Event
+| Column       | Type          | Constraints       |
+|--------------|---------------|-------------------|
+| `id`         | AutoField     | PK                |
+| `url_id`     | ForeignKey    | → urls.id         |
+| `user_id`    | ForeignKey    | → users.id        |
+| `event_type` | CharField     | max 50            |
+| `timestamp`  | DateTimeField |                   |
+| `details`    | TextField     | nullable, JSON    |
 
-class Product(BaseModel):
-    name = CharField()
-    category = CharField()
-    price = DecimalField(decimal_places=2)
-    stock = IntegerField()
+---
+
+## API Reference
+
+All responses are JSON. Errors return `{"error": "<message>"}`.
+
+### Health
+
+| Method | Path      | Description  |
+|--------|-----------|--------------|
+| GET    | `/health` | Health check |
+
+### Users — `/users`
+
+| Method | Path              | Description        | Body / Params                      |
+|--------|-------------------|--------------------|------------------------------------|
+| GET    | `/users/`         | List all users     |                                    |
+| GET    | `/users/<id>`     | Get user by ID     |                                    |
+| POST   | `/users/`         | Create user        | `{"username": "", "email": ""}`    |
+| PATCH  | `/users/<id>`     | Update user fields | `{"username": "", "email": ""}`    |
+| DELETE | `/users/<id>`     | Delete user        |                                    |
+
+### URLs — `/urls`
+
+| Method | Path                     | Description             | Body / Params                                                      |
+|--------|--------------------------|-------------------------|--------------------------------------------------------------------|
+| GET    | `/urls/`                 | List all URLs           | `?user_id=<int>` to filter by user                                 |
+| GET    | `/urls/<id>`             | Get URL by ID           |                                                                    |
+| GET    | `/urls/code/<short_code>`| Get URL by short code   |                                                                    |
+| POST   | `/urls/`                 | Create short URL        | `{"user_id": 1, "short_code": "abc", "original_url": "https://…", "title": "", "is_active": true}` |
+| PATCH  | `/urls/<id>`             | Update URL fields       | `{"short_code": "", "original_url": "", "title": "", "is_active": true}` |
+| DELETE | `/urls/<id>`             | Delete URL              |                                                                    |
+
+### Events — `/events`
+
+| Method | Path             | Description           | Body / Params                                            |
+|--------|------------------|-----------------------|----------------------------------------------------------|
+| GET    | `/events/`       | List all events       | `?url_id=<int>` or `?user_id=<int>` to filter           |
+| GET    | `/events/<id>`   | Get event by ID       |                                                          |
+| POST   | `/events/`       | Create event          | `{"url_id": 1, "user_id": 1, "event_type": "click", "details": "{}"}` |
+| PATCH  | `/events/<id>`   | Update event fields   | `{"event_type": "", "details": ""}`                      |
+| DELETE | `/events/<id>`   | Delete event          |                                                          |
+
+### Seed — `/seed` (CSV Upload)
+
+Accepts `multipart/form-data` with a `file` field.
+
+| Method | Path           | CSV columns required                                                          |
+|--------|----------------|-------------------------------------------------------------------------------|
+| POST   | `/seed/users`  | `id, username, email, created_at`                                             |
+| POST   | `/seed/urls`   | `id, user_id, short_code, original_url, title, is_active, created_at, updated_at` |
+| POST   | `/seed/events` | `id, url_id, user_id, event_type, timestamp, details`                         |
+
+Example:
+```bash
+curl -X POST http://localhost:5000/seed/users \
+  -F "file=@seeds/users.csv"
 ```
 
-2. Import it in `app/models/__init__.py`:
+---
 
-```python
-from app.models.product import Product
+## Migrations
+
+```bash
+# Apply all pending migrations
+python migrate.py run
+
+# Create a new migration (auto-detected from model changes)
+python migrate.py create <name>
+
+# Rollback the last migration
+python migrate.py rollback
 ```
 
-3. Create the table (run once in a Python shell or a setup script):
+Migrations live in `app/database/migrations/`. The initial migration (`001_init.py`) creates the `users`, `urls`, and `events` tables.
 
-```python
-from app.database import db
-from app.models.product import Product
+---
 
-db.create_tables([Product])
+## Seeding
+
+**CLI (recommended for initial setup):**
+```bash
+python seed.py
+```
+Reads `seeds/users.csv`, `seeds/urls.csv`, and `seeds/events.csv` in FK-safe order (Users → URLs → Events). Uses chunked inserts (1 000 rows/batch) via Pandas for large datasets.
+
+**HTTP endpoint:** See the `/seed` routes above — useful for uploading from the hackathon platform UI.
+
+---
+
+## Running Tests
+
+```bash
+# Run all tests
+PYTHONPATH=. uv run pytest
+
+# With coverage report (CI requires ≥ 50%)
+PYTHONPATH=. uv run pytest --cov=app --cov-report=term-missing
+
+# Run a single file
+PYTHONPATH=. uv run pytest tests/test_services.py -v
 ```
 
-## How to Add Routes
+No PostgreSQL instance is needed. Every test monkeypatches the service or repository layer so the real database is never touched.
 
-1. Create a blueprint in `app/routes/`, e.g. `app/routes/products.py`:
+### Test files
 
-```python
-from flask import Blueprint, jsonify
-from playhouse.shortcuts import model_to_dict
+| File | What it covers |
+|---|---|
+| `test_bootstrap.py` | `init_db` — verifies env vars are read, `PostgresqlDatabase` is constructed with the right arguments, `before_request` opens the connection with `reuse_if_open=True`, and `teardown_appcontext` closes it only when it is open. Also verifies `app.main` calls `app.run(debug=True)` when executed as `__main__`. |
+| `test_repositories.py` | Repository CRUD functions — `get_all`, `get_by_id`, `get_by_short_code`, `get_by_user`, `create`, `update`, `delete` — for all three models using lightweight fake ORM classes instead of hitting the database. |
+| `test_services.py` | Service-layer validation — blank/whitespace inputs are rejected with the correct `ValueError` messages, allowed fields are whitelisted on update, `created_at`/`updated_at`/`timestamp` are set to `datetime` objects, and `event_type` is trimmed before being saved. |
+| `test_api_routes.py` | HTTP contract tests for every blueprint — status codes, JSON response shapes, 404 / 400 error bodies, the `?user_id=` filter on `/urls/`, the `url_id`-priority filter on `/events/`, and the `No file provided` guard on `/seed/users`. |
+| `test_api_endpoints.py` | Additional endpoint integration checks — successful create/update/delete flows for URLs and Events, the seed CSV upload endpoints for URLs and Events returning the correct `loaded` count. |
+| `test_utils.py` | `serialize_user/url/event` output shapes, and four `BulkLoader` transform tests: column whitelisting on users, `"True"`/`"False"` string → bool coercion on URLs, `NaN` → `None` replacement for nullable `details` on events, and FK-safe load order (`users → urls → events`) enforced by `load_all`. |
 
-from app.models.product import Product
+---
 
-products_bp = Blueprint("products", __name__)
+## CI
 
+CI runs on every push and pull request to `main` and `develop`. Concurrent runs on the same ref are cancelled automatically (`concurrency: cancel-in-progress: true`).
 
-@products_bp.route("/products")
-def list_products():
-    products = Product.select()
-    return jsonify([model_to_dict(p) for p in products])
+### Pipeline overview
+
+```
+push / pull_request
+        │
+        ▼
+┌──────────────────┐        fails fast — test job won't
+│   quality job    │ ──────► start if linting fails
+└──────────────────┘
+        │ needs: quality
+        ▼
+┌──────────────────┐
+│    test job      │
+└──────────────────┘
 ```
 
-2. Register it in `app/routes/__init__.py`:
+### `quality` job — Lint and format checks
 
-```python
-def register_routes(app):
-    from app.routes.products import products_bp
-    app.register_blueprint(products_bp)
+Runs on `ubuntu-latest`, timeout 10 min.
+
+| Step | Tool | What it checks |
+|---|---|---|
+| Install deps | `uv sync --frozen` | Reproduces exact locked environment (`uv.lock`) |
+| Lint | `uvx ruff check . --output-format=github` | PEP 8, import order, unused variables, common bugs |
+| Format | `uvx ruff format --check .` | Consistent code style — fails if any file needs reformatting |
+
+`UV_FROZEN=true` is set globally so any accidental `uv add` in CI fails rather than silently mutating the lock file.
+
+### `test` job — Tests and smoke checks
+
+Runs on `ubuntu-latest`, timeout 15 min. Requires `quality` to pass first.
+
+Spins up a real **PostgreSQL 16** service container:
+
+```yaml
+image: postgres:16-alpine
+POSTGRES_DB: hackathon_db
+POSTGRES_USER: postgres
+POSTGRES_PASSWORD: postgres
+health-check: pg_isready (retries 5, interval 10s)
 ```
 
-## How to Load CSV Data
+| Step | What it does |
+|---|---|
+| Import smoke check | `from app import create_app; app=create_app()` — verifies the app factory, Swagger setup, and all blueprint registrations succeed without errors |
+| pytest + coverage | Runs the full suite with `--cov=app --cov-report=term-missing --cov-fail-under=50`; exit code 5 (no tests collected) is treated as a pass so an empty suite doesn't block PRs |
 
-```python
-import csv
-from peewee import chunked
-from app.database import db
-from app.models.product import Product
+### Running CI checks locally
 
-def load_csv(filepath):
-    with open(filepath, newline="") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
+```bash
+# Lint
+uvx ruff check . --output-format=github
 
-    with db.atomic():
-        for batch in chunked(rows, 100):
-            Product.insert_many(batch).execute()
+# Format check
+uvx ruff format --check .
+
+# Fix lint + format issues automatically
+uvx ruff check . --fix && uvx ruff format .
+
+# Full test run matching CI
+PYTHONPATH=. uv run --with pytest --with pytest-cov pytest -q --cov=app --cov-report=term-missing --cov-fail-under=50
 ```
 
-## Useful Peewee Patterns
+---
 
-```python
-from peewee import fn
-from playhouse.shortcuts import model_to_dict
+## uv Reference
 
-# Select all
-products = Product.select()
+| Command              | What it does                                  |
+|----------------------|-----------------------------------------------|
+| `uv sync`            | Install all dependencies (creates `.venv`)    |
+| `uv run <script>`    | Run a script using the project's virtual env  |
+| `uv add <package>`   | Add a dependency                              |
+| `uv remove <package>`| Remove a dependency                           |
 
-# Filter
-cheap = Product.select().where(Product.price < 10)
+---
 
-# Get by ID
-p = Product.get_by_id(1)
+## Architecture Notes
 
-# Create
-Product.create(name="Widget", category="Tools", price=9.99, stock=50)
-
-# Convert to dict (great for JSON responses)
-model_to_dict(p)
-
-# Aggregations
-avg_price = Product.select(fn.AVG(Product.price)).scalar()
-total = Product.select(fn.SUM(Product.stock)).scalar()
-
-# Group by
-from peewee import fn
-query = (Product
-         .select(Product.category, fn.COUNT(Product.id).alias("count"))
-         .group_by(Product.category))
-```
-
-## Tips
-
-- Use `model_to_dict` from `playhouse.shortcuts` to convert model instances to dictionaries for JSON responses.
-- Wrap bulk inserts in `db.atomic()` for transactional safety and performance.
-- The template uses `teardown_appcontext` for connection cleanup, so connections are closed even when requests fail.
-- Check `.env.example` for all available configuration options.
+- **Repository pattern**: `repositories/` handles all raw Peewee queries. Services never touch the ORM directly.
+- **Service layer**: `services/` owns validation and business rules. Routes call services, not repositories.
+- **Connection lifecycle**: `before_request` opens the connection; `teardown_appcontext` closes it even on errors.
+- **Bulk loading**: `BulkLoader` processes CSVs in 1 000-row chunks inside transactions to bound memory and guarantee atomicity per batch.
+- **Interactive docs**: Flasgger generates Swagger 2.0 docs from inline docstrings. Visit `/apidocs` while the server is running.
