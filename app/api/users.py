@@ -63,7 +63,7 @@ def get_user(user_id):
     user = user_service.get_by_id(user_id)
     if not user:
         logger.info("user_not_found", extra={"user_id": user_id})
-        return jsonify(error="user not found"), 404
+        return jsonify(error="Not found"), 404
     return jsonify(serialize_user(user))
 
 
@@ -182,7 +182,7 @@ def update_user(user_id):
         return jsonify(error=str(e)), 400
     if not updated:
         logger.info("user_update_not_found", extra={"user_id": user_id})
-        return jsonify(error="user not found"), 404
+        return jsonify(error="Not found"), 404
     logger.info("user_update_succeeded", extra={"user_id": user_id})
     return jsonify(serialize_user(user_service.get_by_id(user_id)))
 

@@ -127,7 +127,7 @@ def get_by_short_code(short_code):
     url = url_service.get_by_short_code(short_code)
     if not url:
         logger.info("url_not_found_by_code", extra={"short_code": short_code})
-        return jsonify(error="url not found"), 404
+        return jsonify(error="Not found"), 404
     return jsonify(serialize_url(url))
 
 

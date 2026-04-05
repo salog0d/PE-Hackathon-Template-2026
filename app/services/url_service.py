@@ -31,8 +31,8 @@ def _generate_short_code(length: int = 7) -> str:
 
 def create(
     user_id: int,
-    original_url: str,
     short_code: str = None,
+    original_url: str = None,
     title: str = None,
     is_active: bool = True,
 ):
@@ -40,7 +40,9 @@ def create(
         raise ValueError("user_id is required")
     if not isinstance(user_id, int) or user_id <= 0:
         raise ValueError("user_id must be a positive integer")
-    if not short_code or not short_code.strip():
+    if short_code is not None and not short_code.strip():
+        raise ValueError("short_code is required")
+    if not short_code:
         short_code = _generate_short_code()
     if len(short_code.strip()) > 20:
         raise ValueError("short_code must be 20 characters or fewer")
