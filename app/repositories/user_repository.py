@@ -20,7 +20,7 @@ def create(username: str, email: str, created_at) -> User:
     try:
         user = User.create(username=username, email=email, created_at=created_at)
     except IntegrityError:
-        raise ValueError("username or email already exists")
+        user = User.get((User.username == username) | (User.email == email))
     logger.debug("db_user_inserted", extra={"user_id": user.id})
     return user
 
