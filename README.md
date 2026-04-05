@@ -480,7 +480,8 @@ PYTHONPATH=. uv run --with pytest --with pytest-cov pytest -q --cov=app --cov-re
 | Doc | Contents |
 |---|---|
 | [`docs/deployment.md`](docs/deployment.md) | Deployment steps, rollback procedures, environment variables, health verification |
-| [`docs/decisions.md`](docs/decisions.md) | Major technical decisions, rationale, capacity assumptions, and known limits |
+| [`docs/decisions.md`](docs/decisions.md) | Major technical decisions and rationale |
+| [`docs/capacity.md`](docs/capacity.md) | Current limits, capacity assumptions, and scalability roadmap (single instance → Redis cache → 500+ users) |
 | [`docs/runbook.md`](docs/runbook.md) | Step-by-step alert response procedures for all 6 alerts |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | Non-alert failures: startup crashes, migration errors, seed issues, missing metrics |
 | [`docs/observability.md`](docs/observability.md) | Metrics reference, log format, alerting SLO, alert inventory |

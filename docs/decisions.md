@@ -82,15 +82,6 @@
 
 ---
 
-## Capacity assumptions and known limits
+## Capacity assumptions and scalability
 
-| Dimension | Assumed limit | Notes |
-|---|---|---|
-| Concurrent requests | ~20–30 | One DB connection per request; Peewee does not pool connections. Above ~30 concurrent requests, DB connections queue and P99 latency will spike. `HighRequestsInFlight` alerts at 50 in-flight. |
-| Request rate | ~100 req/s | Flask dev server (`flask run`) is single-process and single-threaded. For higher throughput, run behind Gunicorn with multiple workers: `gunicorn -w 4 app.main:app`. |
-| Database volume | Unbounded (local Docker volume) | No storage limit is set. Monitor with `df -h`; the `DatabaseDown` alert will fire if Postgres cannot write due to a full disk. |
-| Prometheus retention | 7 days | Configured via `--storage.tsdb.retention.time=7d` in `docker-compose.yml`. Older samples are dropped automatically. |
-| Loki log retention | Unbounded | `loki-config.yml` does not set a retention period. Logs accumulate until the volume is cleaned or the stack is restarted with `docker compose down -v`. |
-| CSV seed file size | ~100 MB practical limit | Pandas loads the full file into memory before chunking. Very large CSVs (> 500 MB) may OOM the container (default Docker memory limit). |
-| Migration rollback | One step at a time | `python migrate.py rollback` reverts the last migration only. Rolling back multiple versions requires running the command repeatedly. |
-| Test coverage gate | 50 % line coverage | CI fails below this threshold (`--cov-fail-under=50`). The gate is intentionally low for a hackathon; raise it for a production codebase. |
+Current limits, known bottlenecks, and the three-phase scalability roadmap (single instance → 500+ users via Redis caching → horizontal replicas) are documented in [`docs/capacity.md`](capacity.md).
