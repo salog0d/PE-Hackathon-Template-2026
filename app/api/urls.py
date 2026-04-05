@@ -1,6 +1,6 @@
 import logging
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, redirect, request
 
 from app.metrics import urls_created_total
 from app.services import url_service
@@ -75,6 +75,35 @@ def get_url(url_id):
         logger.info("url_not_found", extra={"url_id": url_id})
         return jsonify(error="url not found"), 404
     return jsonify(serialize_url(url))
+
+
+@urls_bp.get("/<string:short_code>/redirect")
+def redirect_short_code(short_code):
+    """
+    Redirect to the original URL for a given short code
+    ---
+    tags:
+      - URLs
+    parameters:
+      - name: short_code
+        in: path
+        type: string
+        required: true
+    responses:
+      301:
+        description: Redirect to original URL
+      404:
+        description: URL not found
+    """
+    url = url_service.get_by_short_code(short_code)
+    if not url:
+        logger.info("url_redirect_not_found", extra={"short_code": short_code})
+        return jsonify(error="url not found"), 404
+    logger.info(
+        "url_redirecting",
+        extra={"short_code": short_code, "original_url": url.original_url},
+    )
+    return redirect(url.original_url, code=301)
 
 
 @urls_bp.get("/code/<string:short_code>")

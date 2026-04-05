@@ -1,5 +1,7 @@
 import logging
 
+from peewee import IntegrityError
+
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -15,7 +17,10 @@ def get_by_id(user_id: int):
 
 def create(username: str, email: str, created_at) -> User:
     logger.debug("db_user_insert", extra={"username": username})
-    user = User.create(username=username, email=email, created_at=created_at)
+    try:
+        user = User.create(username=username, email=email, created_at=created_at)
+    except IntegrityError:
+        raise ValueError("username or email already exists")
     logger.debug("db_user_inserted", extra={"user_id": user.id})
     return user
 

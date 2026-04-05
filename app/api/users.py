@@ -135,7 +135,7 @@ def bulk_users():
     logger.info("bulk_users_started", extra={"path": path})
     count = BulkLoader.load_users(path)
     logger.info("bulk_users_completed", extra={"count": count})
-    return jsonify(loaded=count, model="users")
+    return jsonify(imported=count, model="users")
 
 
 @users_bp.route("/<int:user_id>", methods=["PATCH", "PUT"])
