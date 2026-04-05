@@ -32,7 +32,7 @@ class BulkLoader:
                 chunk = transform(chunk)
             records = chunk.to_dict("records")
             with db.atomic():
-                model.insert_many(records).execute()
+                model.insert_many(records).on_conflict_ignore().execute()
             total += len(records)
             logger.debug(
                 "db_chunk_inserted",

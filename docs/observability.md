@@ -71,3 +71,33 @@ Point your Prometheus scrape config at:
 ```
 http://<host>:<port>/metrics
 ```
+
+---
+
+## Alerting
+
+Alerts are defined in `observability/prometheus/alert_rules.yml` and routed through Alertmanager (`observability/alertmanager/alertmanager.yml`) to Discord.
+
+### Five-minute response objective
+
+Every alert is tuned so that the total pipeline — from the moment a threshold is first breached to the moment a notification is dispatched — is **≤ 5 minutes**:
+
+| Stage | Duration |
+|---|---|
+| Prometheus `for` pending period (max) | 2 min |
+| Alertmanager `group_wait` | 30 s |
+| Routing + delivery overhead | ~30 s |
+| **Total (worst-case)** | **≈ 3 min** |
+
+### Alert inventory
+
+| Alert | Severity | Condition | Pending (`for`) |
+|---|---|---|---|
+| `ServiceDown` | critical | `up{job="url-service"} == 0` | 1 m |
+| `DatabaseDown` | critical | `db_up == 0` | 1 m |
+| `HighErrorRate` | critical | 5xx rate > 5 % of traffic | 2 m |
+| `HighLatencyP99` | critical | P99 latency > 1 s | 1 m |
+| `HighLatencyP95` | warning | P95 latency > 500 ms | 2 m |
+| `HighRequestsInFlight` | warning | in-flight requests > 50 | 2 m |
+
+Critical alerts repeat every 30 minutes; warnings repeat every 2 hours (see `alertmanager.yml` `repeat_interval`).
