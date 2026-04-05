@@ -2,7 +2,8 @@
 
 A production-ready REST API for shortening URLs and tracking click events, built for the MLH PE Hackathon 2026.
 
-**Stack:** Flask 3.1 · Peewee ORM · PostgreSQL · uv · Flasgger (Swagger UI) · Pandas
+**Stack:** Flask 3.1 · Peewee ORM · PostgreSQL · uv · Flasgger (Swagger UI) · Pandas  
+**Observability:** Prometheus · Grafana · Loki · Promtail · Alertmanager
 
 ---
 
@@ -17,11 +18,44 @@ A production-ready REST API for shortening URLs and tracking click events, built
   # Windows (PowerShell)
   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
   ```
-- **PostgreSQL** running locally or via Docker
+- **Docker + Docker Compose** — required for the full stack (app + observability)
 
 ---
 
 ## Quick Start
+
+### Full stack (recommended)
+
+Runs the API, PostgreSQL, Prometheus, Grafana, Loki, Promtail, and Alertmanager in one command.
+
+```bash
+# 1. Configure environment
+cp .env.example .env   # edit DB credentials / Grafana password if needed
+
+# 2. Start everything
+docker compose up --build -d
+
+# 3. Run migrations
+docker compose exec app python migrate.py run
+
+# 4. (Optional) Seed the database
+docker compose exec app python seed.py
+
+# 5. Verify
+curl http://localhost:5000/health
+# → {"status": "ok"}
+```
+
+| Service | URL |
+|---|---|
+| API | http://localhost:5000 |
+| Swagger UI | http://localhost:5000/apidocs |
+| Grafana | http://localhost:3000 (admin / admin) |
+| Prometheus | http://localhost:9090 |
+| Alertmanager | http://localhost:9093 |
+| Loki | http://localhost:3100 |
+
+### Local dev (no Docker)
 
 ```bash
 # 1. Install dependencies
@@ -31,20 +65,16 @@ uv sync
 createdb hackathon_db
 
 # 3. Configure environment
-cp .env.example .env   # edit if your DB credentials differ
+cp .env.example .env
 
 # 4. Run migrations
 python migrate.py run
 
-# 5. (Optional) Seed the database from CSV files
+# 5. (Optional) Seed the database
 python seed.py
 
 # 6. Start the server
 uv run run.py
-
-# 7. Verify
-curl http://localhost:5000/health
-# → {"status": "ok"}
 ```
 
 Swagger UI is available at **http://localhost:5000/apidocs**.
@@ -63,6 +93,9 @@ Copy `.env.example` to `.env` and adjust as needed:
 | `DATABASE_USER`     | `postgres`     | Database user            |
 | `DATABASE_PASSWORD` | `postgres`     | Database password        |
 | `FLASK_DEBUG`       | `true`         | Enable debug mode        |
+| `LOG_LEVEL`         | `INFO`         | App log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `SERVICE_NAME`      | `url-service`  | Service name stamped on every log line |
+| `GRAFANA_PASSWORD`  | `admin`        | Grafana admin password   |
 
 ---
 
@@ -71,8 +104,10 @@ Copy `.env.example` to `.env` and adjust as needed:
 ```
 .
 ├── app/
-│   ├── app.py                      # App factory — registers DB, routes, Swagger
+│   ├── app.py                      # App factory — registers DB, routes, Swagger, metrics
 │   ├── main.py                     # WSGI entry point
+│   ├── metrics.py                  # Prometheus metric definitions
+│   ├── logging_config.py           # JSON structured logging (JsonFormatter)
 │   ├── database/
 │   │   ├── __init__.py             # DatabaseProxy, BaseModel, connection lifecycle
 │   │   └── migrations/
@@ -97,7 +132,31 @@ Copy `.env.example` to `.env` and adjust as needed:
 │   │   └── seed.py                 # CSV upload endpoints for /seed
 │   └── utils/
 │       ├── serializers.py          # Model → dict helpers
-│       └── bulk_loader.py          # Pandas-backed CSV bulk importer
+│       └── bulk_loader.py          # Pandas-backed idempotent CSV bulk importer
+├── observability/
+│   ├── prometheus/
+│   │   ├── prometheus.yml          # Scrape config (url-service + alertmanager)
+│   │   └── alert_rules.yml         # 6 alert rules (availability, latency, errors, saturation)
+│   ├── alertmanager/
+│   │   └── alertmanager.yml        # Discord webhook routing, severity-based repeat intervals
+│   ├── grafana/
+│   │   └── provisioning/
+│   │       ├── dashboards/
+│   │       │   ├── dashboards.yml  # Dashboard provider config
+│   │       │   └── url-service.json# Pre-built dashboard (traffic, latency, errors, saturation, logs)
+│   │       └── datasources/
+│   │           └── datasources.yml # Prometheus + Loki datasources (auto-provisioned)
+│   ├── loki/
+│   │   └── loki-config.yml         # Loki storage and retention config
+│   └── promtail/
+│       └── promtail-config.yml     # Log scraping from Docker container labels
+├── docs/
+│   ├── observability.md            # Metrics reference, log format, alerting SLO
+│   ├── runbook.md                  # Alert-response procedures for all 6 alerts
+│   ├── incident-rca-2026-04-05.md  # RCA: duplicate username 500 on seed endpoint
+│   ├── error-handling.md           # API error contracts, validation, failure modes
+│   ├── failure-modes.md            # Per-failure-class behaviour and recovery
+│   └── chaos-restart-demo.md       # Chaos/recovery demonstration guide
 ├── tests/
 │   ├── conftest.py                 # Pytest fixtures (app, client, model factories)
 │   ├── test_api_routes.py
@@ -110,6 +169,8 @@ Copy `.env.example` to `.env` and adjust as needed:
 │   ├── users.csv
 │   ├── urls.csv
 │   └── events.csv
+├── docker-compose.yml              # Full stack: app + DB + observability
+├── Dockerfile
 ├── migrate.py                      # Migration CLI
 ├── seed.py                         # Seed loader CLI
 ├── run.py                          # Dev server entry point
@@ -196,7 +257,7 @@ All responses are JSON. Errors return `{"error": "<message>"}`.
 
 ### Seed — `/seed` (CSV Upload)
 
-Accepts `multipart/form-data` with a `file` field.
+Accepts `multipart/form-data` with a `file` field. All seed endpoints are **idempotent** — uploading the same CSV multiple times is safe; duplicate rows are skipped via `ON CONFLICT DO NOTHING`.
 
 | Method | Path           | CSV columns required                                                          |
 |--------|----------------|-------------------------------------------------------------------------------|
@@ -209,6 +270,58 @@ Example:
 curl -X POST http://localhost:5000/seed/users \
   -F "file=@seeds/users.csv"
 ```
+
+---
+
+## Observability
+
+The full observability stack is provisioned automatically by `docker compose up`.
+
+### Metrics — Prometheus + Grafana
+
+The app exposes `GET /metrics` in Prometheus text format. Prometheus scrapes it every 15 seconds.
+
+| Metric | Type | Description |
+|---|---|---|
+| `http_requests_total` | Counter | Total requests, labelled by `method`, `endpoint`, `status` |
+| `http_request_duration_seconds` | Histogram | Request latency (buckets: 0.05 s → 10 s) |
+| `http_requests_in_progress` | Gauge | Currently in-flight requests |
+| `http_errors_total` | Counter | Total 5xx errors by `method` and `endpoint` |
+| `db_up` | Gauge | Database reachability: `1` = up, `0` = down |
+| `urls_created_total` | Counter | Short URLs successfully created |
+
+The **URL Service** Grafana dashboard (auto-provisioned at startup) shows:
+- Traffic: request rate and total counter
+- Latency: p50 / p95 / p99 timeseries and a p95 gauge with red/yellow/green thresholds
+- Errors: 5xx rate and error ratio (%)
+- Saturation: in-flight requests and database health status
+- Logs: live application and error log streams from Loki
+
+### Logging — Loki + Promtail
+
+Every log line is emitted as a JSON object to stdout and collected by Promtail via Docker container labels. Logs are queryable in Grafana using LogQL:
+
+```
+{service="url-service"}                    # all logs
+{service="url-service", level="ERROR"}     # errors only
+```
+
+Each log line includes `timestamp`, `level`, `service`, `logger`, `message`, `request_id`, and optional `exc_info`.
+
+### Alerting — Alertmanager → Discord
+
+Six Prometheus alerting rules fire within **≤ 5 minutes** of a threshold breach (pending period + Alertmanager `group_wait` + routing overhead ≤ 5 min). Notifications are delivered to Discord.
+
+| Alert | Severity | Condition |
+|---|---|---|
+| `ServiceDown` | critical | Service unreachable for 1 m |
+| `DatabaseDown` | critical | `db_up == 0` for 1 m |
+| `HighErrorRate` | critical | 5xx rate > 5 % for 2 m |
+| `HighLatencyP99` | critical | P99 > 1 s for 1 m |
+| `HighLatencyP95` | warning | P95 > 500 ms for 2 m |
+| `HighRequestsInFlight` | warning | In-flight > 50 for 2 m |
+
+See [`docs/runbook.md`](docs/runbook.md) for step-by-step response procedures and [`docs/observability.md`](docs/observability.md) for the full SLO breakdown.
 
 ---
 
@@ -353,6 +466,21 @@ PYTHONPATH=. uv run --with pytest --with pytest-cov pytest -q --cov=app --cov-re
 
 - **Repository pattern**: `repositories/` handles all raw Peewee queries. Services never touch the ORM directly.
 - **Service layer**: `services/` owns validation and business rules. Routes call services, not repositories.
-- **Connection lifecycle**: `before_request` opens the connection; `teardown_appcontext` closes it even on errors.
-- **Bulk loading**: `BulkLoader` processes CSVs in 1 000-row chunks inside transactions to bound memory and guarantee atomicity per batch.
+- **Connection lifecycle**: `before_request` opens the connection with `reuse_if_open=True`; `teardown_appcontext` closes it even on errors, guarded against double-close.
+- **Bulk loading**: `BulkLoader` processes CSVs in 1 000-row chunks inside atomic transactions. Duplicate rows are skipped via `ON CONFLICT DO NOTHING`, making all seed endpoints idempotent.
+- **Structured logging**: Every log line is a JSON object with `request_id` for per-request correlation. Promtail ships logs to Loki; Grafana surfaces them alongside metrics.
+- **Metrics instrumentation**: Request count, latency histogram, in-flight gauge, error counter, and DB health gauge are updated in `before_request` / `after_request` middleware hooks and the `/health/db` endpoint.
+- **Observability stack**: All seven services (app, db, prometheus, alertmanager, loki, promtail, grafana) are defined in `docker-compose.yml`. Grafana datasources and the URL Service dashboard are auto-provisioned on first start — no manual setup required.
 - **Interactive docs**: Flasgger generates Swagger 2.0 docs from inline docstrings. Visit `/apidocs` while the server is running.
+
+---
+
+## Documentation
+
+| Doc | Contents |
+|---|---|
+| [`docs/observability.md`](docs/observability.md) | Metrics reference, log format, alerting SLO, alert inventory |
+| [`docs/runbook.md`](docs/runbook.md) | Step-by-step alert response procedures for all 6 alerts |
+| [`docs/incident-rca-2026-04-05.md`](docs/incident-rca-2026-04-05.md) | RCA: duplicate username 500 on `/seed/users` |
+| [`docs/error-handling.md`](docs/error-handling.md) | API error contracts, validation rules, failure mode catalogue |
+| [`docs/failure-modes.md`](docs/failure-modes.md) | Per-failure-class behaviour, recovery mechanisms, and expected logs |
