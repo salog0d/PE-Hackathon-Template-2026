@@ -50,17 +50,32 @@ groups:
       # Latency                                                              #
       # ------------------------------------------------------------------ #
 
+      # P99 > 1 s — critical, fires fast so total pipeline stays < 5 min
+      - alert: HighLatencyP99
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[2m])) by (le)
+          ) > 1.0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "P99 latency is above 1 s"
+          description: "The 99th-percentile request latency has exceeded 1 s for 1 minute (current: {{ printf \"%.3f\" $value }} s)."
+
+      # P95 > 500 ms — warning; for: 2m keeps total alert pipeline under 5 min
+      # (2 m pending + 30 s group_wait + routing overhead ≈ 3 min worst-case)
       - alert: HighLatencyP95
         expr: >
           histogram_quantile(0.95,
             sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
           ) > 0.5
-        for: 5m
+        for: 2m
         labels:
           severity: warning
         annotations:
           summary: "P95 latency is above 500 ms"
-          description: "The 95th-percentile request latency has exceeded 500 ms for 5 minutes (current: {{ printf \"%.3f\" $value }} s)."
+          description: "The 95th-percentile request latency has exceeded 500 ms for 2 minutes (current: {{ printf \"%.3f\" $value }} s)."
 
       # ------------------------------------------------------------------ #
       # In-flight requests                                                   #
