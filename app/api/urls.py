@@ -2,6 +2,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
+from app.metrics import urls_created_total
 from app.services import url_service
 from app.utils.serializers import serialize_url
 
@@ -133,6 +134,7 @@ def create_url():
     except ValueError as e:
         logger.warning("url_create_validation_failed", extra={"reason": str(e)})
         return jsonify(error=str(e)), 400
+    urls_created_total.inc()
     logger.info("url_create_succeeded", extra={"url_id": url.id})
     return jsonify(serialize_url(url)), 201
 

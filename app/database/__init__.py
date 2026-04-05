@@ -38,10 +38,14 @@ def check_db() -> dict:
     Probe the database with a lightweight query.
     Returns {"ok": True} on success or {"ok": False, "error": "<msg>"} on failure.
     """
+    from app.metrics import db_up
+
     try:
         db.execute_sql("SELECT 1")
+        db_up.set(1)
         return {"ok": True}
     except Exception as exc:  # noqa: BLE001
+        db_up.set(0)
         return {"ok": False, "error": str(exc)}
 
 

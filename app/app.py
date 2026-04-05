@@ -6,10 +6,17 @@ from importlib import import_module
 from dotenv import load_dotenv
 from flasgger import Swagger
 from flask import Flask, g, jsonify, request
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api import register_routes
 from app.database import check_db, init_db
 from app.logging_config import request_id_var, setup_logging
+from app.metrics import (
+    http_errors_total,
+    http_request_duration_seconds,
+    http_requests_in_progress,
+    http_requests_total,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +36,20 @@ def create_app():
     register_routes(app)
 
     # ------------------------------------------------------------------ #
-    # Request tracing middleware                                           #
+    # Request tracing + metrics middleware                                 #
     # ------------------------------------------------------------------ #
 
     @app.before_request
     def _set_request_context():
+        g.request_start = time.perf_counter()
+
+        if request.path == "/metrics":
+            return
+
         request_id = str(uuid.uuid4())
         g.request_id = request_id
-        g.request_start = time.perf_counter()
         request_id_var.set(request_id)
+        http_requests_in_progress.inc()
         logger.info(
             "request_started",
             extra={"method": request.method, "path": request.path},
@@ -45,7 +57,27 @@ def create_app():
 
     @app.after_request
     def _log_response(response):
-        latency_ms = round((time.perf_counter() - g.request_start) * 1000, 2)
+        if request.path == "/metrics":
+            return response
+
+        elapsed = time.perf_counter() - g.request_start
+        latency_ms = round(elapsed * 1000, 2)
+
+        # Use the route template to keep label cardinality low.
+        # Falls back to "unknown" for unmatched routes (404s).
+        endpoint = str(request.url_rule) if request.url_rule else "unknown"
+
+        http_requests_in_progress.dec()
+        http_requests_total.labels(
+            method=request.method,
+            endpoint=endpoint,
+            status=str(response.status_code),
+        ).inc()
+        http_request_duration_seconds.labels(endpoint=endpoint).observe(elapsed)
+
+        if response.status_code >= 500:
+            http_errors_total.labels(method=request.method, endpoint=endpoint).inc()
+
         logger.info(
             "request_finished",
             extra={
@@ -111,5 +143,13 @@ def create_app():
         return jsonify(
             status="degraded", database="unreachable", error=result["error"]
         ), 503
+
+    # ------------------------------------------------------------------ #
+    # Prometheus metrics endpoint                                          #
+    # ------------------------------------------------------------------ #
+
+    @app.route("/metrics")
+    def metrics():
+        return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
 
     return app
