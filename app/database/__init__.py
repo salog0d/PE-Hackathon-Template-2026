@@ -3,7 +3,7 @@ import os
 import time
 
 from peewee import DatabaseProxy, Model, OperationalError
-from playhouse.pool import PooledPostgresqlDatabase
+from playhouse.pool import PooledPostgresqlDatabase as PostgresqlDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def check_db() -> dict:
 
 
 def init_db(app):
-    database = PooledPostgresqlDatabase(
+    database = PostgresqlDatabase(
         os.environ.get("DATABASE_NAME", "hackathon_db"),
         host=os.environ.get("DATABASE_HOST", "localhost"),
         port=int(os.environ.get("DATABASE_PORT", 5432)),
