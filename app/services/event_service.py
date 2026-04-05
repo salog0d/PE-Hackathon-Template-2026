@@ -25,10 +25,16 @@ def get_by_user(user_id: int):
 def create(url_id: int, user_id: int, event_type: str, details: str = None):
     if not url_id:
         raise ValueError("url_id is required")
+    if not isinstance(url_id, int) or url_id <= 0:
+        raise ValueError("url_id must be a positive integer")
     if not user_id:
         raise ValueError("user_id is required")
+    if not isinstance(user_id, int) or user_id <= 0:
+        raise ValueError("user_id must be a positive integer")
     if not event_type or not event_type.strip():
         raise ValueError("event_type is required")
+    if len(event_type.strip()) > 50:
+        raise ValueError("event_type must be 50 characters or fewer")
     logger.info(
         "event_creating",
         extra={"url_id": url_id, "user_id": user_id, "event_type": event_type},

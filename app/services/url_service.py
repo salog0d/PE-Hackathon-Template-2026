@@ -31,10 +31,22 @@ def create(
 ):
     if not user_id:
         raise ValueError("user_id is required")
+    if not isinstance(user_id, int) or user_id <= 0:
+        raise ValueError("user_id must be a positive integer")
     if not short_code or not short_code.strip():
         raise ValueError("short_code is required")
+    if len(short_code.strip()) > 20:
+        raise ValueError("short_code must be 20 characters or fewer")
     if not original_url or not original_url.strip():
         raise ValueError("original_url is required")
+    if len(original_url.strip()) > 2048:
+        raise ValueError("original_url must be 2048 characters or fewer")
+    if not original_url.strip().startswith(("http://", "https://")):
+        raise ValueError("original_url must start with http:// or https://")
+    if title is not None and len(title) > 255:
+        raise ValueError("title must be 255 characters or fewer")
+    if not isinstance(is_active, bool):
+        raise ValueError("is_active must be a boolean")
 
     now = datetime.now(UTC)
     logger.info("url_creating", extra={"user_id": user_id, "short_code": short_code})

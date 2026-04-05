@@ -1,9 +1,12 @@
 import logging
+import re
 from datetime import UTC, datetime
 
 from app.repositories import user_repository
 
 logger = logging.getLogger(__name__)
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def get_all():
@@ -17,8 +20,14 @@ def get_by_id(user_id: int):
 def create(username: str, email: str):
     if not username or not username.strip():
         raise ValueError("username is required")
+    if len(username.strip()) > 255:
+        raise ValueError("username must be 255 characters or fewer")
     if not email or not email.strip():
         raise ValueError("email is required")
+    if len(email.strip()) > 255:
+        raise ValueError("email must be 255 characters or fewer")
+    if not _EMAIL_RE.match(email.strip()):
+        raise ValueError("email is not a valid email address")
     logger.info("user_creating", extra={"username": username})
     user = user_repository.create(
         username=username.strip(),
