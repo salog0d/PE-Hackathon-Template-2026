@@ -479,8 +479,10 @@ PYTHONPATH=. uv run --with pytest --with pytest-cov pytest -q --cov=app --cov-re
 
 | Doc | Contents |
 |---|---|
+| [`docs/deployment.md`](docs/deployment.md) | Deployment steps, rollback procedures, environment variables, health verification |
+| [`docs/decisions.md`](docs/decisions.md) | Major technical decisions, rationale, capacity assumptions, and known limits |
+| [`docs/runbook.md`](docs/runbook.md) | Alert response procedures for all 6 alerts + non-alert troubleshooting |
 | [`docs/observability.md`](docs/observability.md) | Metrics reference, log format, alerting SLO, alert inventory |
-| [`docs/runbook.md`](docs/runbook.md) | Step-by-step alert response procedures for all 6 alerts |
-| [`docs/incident-rca-2026-04-05.md`](docs/incident-rca-2026-04-05.md) | RCA: duplicate username 500 on `/seed/users` |
 | [`docs/error-handling.md`](docs/error-handling.md) | API error contracts, validation rules, failure mode catalogue |
 | [`docs/failure-modes.md`](docs/failure-modes.md) | Per-failure-class behaviour, recovery mechanisms, and expected logs |
+| [`docs/incident-rca-2026-04-05.md`](docs/incident-rca-2026-04-05.md) | RCA: duplicate username 500 on `/seed/users` |
