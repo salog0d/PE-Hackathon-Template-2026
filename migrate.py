@@ -18,7 +18,8 @@ load_dotenv()
 app = create_app()
 
 with app.app_context():
-    router = Router(db, migrate_dir="migrations")
+    db.connect(reuse_if_open=True)
+    router = Router(db, migrate_dir="app/database/migrations")
 
     command = sys.argv[1] if len(sys.argv) > 1 else None
 
