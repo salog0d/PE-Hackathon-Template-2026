@@ -2,7 +2,8 @@ import logging
 import os
 import time
 
-from peewee import DatabaseProxy, Model, OperationalError, PostgresqlDatabase
+from peewee import DatabaseProxy, Model, OperationalError
+from playhouse.pool import PooledPostgresqlDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +51,14 @@ def check_db() -> dict:
 
 
 def init_db(app):
-    database = PostgresqlDatabase(
+    database = PooledPostgresqlDatabase(
         os.environ.get("DATABASE_NAME", "hackathon_db"),
         host=os.environ.get("DATABASE_HOST", "localhost"),
         port=int(os.environ.get("DATABASE_PORT", 5432)),
         user=os.environ.get("DATABASE_USER", "postgres"),
         password=os.environ.get("DATABASE_PASSWORD", "postgres"),
+        max_connections=int(os.environ.get("DB_POOL_MAX", 20)),
+        stale_timeout=300,
     )
     db.initialize(database)
 

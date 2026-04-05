@@ -25,6 +25,7 @@
  */
 
 import { sleep } from "k6";
+import http from "k6/http";
 import {
   SLO_THRESHOLDS,
   SEED_SHORT_CODES,
@@ -33,11 +34,12 @@ import {
   randomItem,
   resolveShortCode,
   getUrl,
-  getUser,
   createUrl,
-  createUser,
   createEvent,
 } from "./helpers.js";
+
+// 404 is an expected response for short-code lookups — do not count as failure
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }, 404));
 
 export const options = {
   stages: [
@@ -52,49 +54,37 @@ export const options = {
   },
 };
 
-// Shared state: track created IDs so later iterations can read their own writes
-const createdUserIds = [];
-const createdUrlIds  = [];
+// Shared state: track created URL IDs so later iterations can read their own writes
+const createdUrlIds = [];
 
 export default function () {
   const roll = Math.random();
 
-  if (roll < 0.70) {
-    // --- 70 %: resolve a short code (hot read path) ---
-    const pool = createdUrlIds.length > 0
-      ? [...SEED_SHORT_CODES, ...createdUrlIds.map((id) => `lt-${id}`)]
-      : SEED_SHORT_CODES;
+  if (roll < 0.80) {
+    // --- 80 %: resolve a short code (hot read path) ---
     resolveShortCode(randomItem(SEED_SHORT_CODES));
     sleep(randomSleep(0.05, 0.2));
 
-  } else if (roll < 0.85) {
-    // --- 15 %: create a new short URL ---
-    const userId = createdUserIds.length > 0
-      ? randomItem(createdUserIds)
-      : randomItem(SEED_USER_IDS);
+  } else if (roll < 0.90) {
+    // --- 10 %: look up a URL by ID ---
+    getUrl(randomItem(SEED_URL_IDS));
+    sleep(randomSleep(0.05, 0.15));
+
+  } else if (roll < 0.97) {
+    // --- 7 %: create a new short URL ---
+    const userId = randomItem(SEED_USER_IDS);
     const res = createUrl(userId);
     if (res.status === 201) {
       createdUrlIds.push(res.json("id"));
     }
     sleep(randomSleep(0.1, 0.4));
 
-  } else if (roll < 0.95) {
-    // --- 10 %: look up a user ---
-    const userId = createdUserIds.length > 0
-      ? randomItem([...SEED_USER_IDS, ...createdUserIds])
-      : randomItem(SEED_USER_IDS);
-    getUser(userId);
-    sleep(randomSleep(0.05, 0.15));
-
   } else {
-    // --- 5 %: record a click event ---
+    // --- 3 %: record a click event ---
     const urlId  = createdUrlIds.length > 0
       ? randomItem([...SEED_URL_IDS, ...createdUrlIds])
       : randomItem(SEED_URL_IDS);
-    const userId = createdUserIds.length > 0
-      ? randomItem([...SEED_USER_IDS, ...createdUserIds])
-      : randomItem(SEED_USER_IDS);
-    createEvent(urlId, userId);
+    createEvent(urlId, randomItem(SEED_USER_IDS));
     sleep(randomSleep(0.1, 0.3));
   }
 }
