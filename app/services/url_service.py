@@ -1,4 +1,6 @@
 import logging
+import secrets
+import string
 from datetime import UTC, datetime
 
 from app.repositories import url_repository
@@ -22,10 +24,15 @@ def get_by_user(user_id: int):
     return url_repository.get_by_user(user_id)
 
 
+def _generate_short_code(length: int = 7) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
 def create(
     user_id: int,
-    short_code: str,
     original_url: str,
+    short_code: str = None,
     title: str = None,
     is_active: bool = True,
 ):
@@ -34,7 +41,7 @@ def create(
     if not isinstance(user_id, int) or user_id <= 0:
         raise ValueError("user_id must be a positive integer")
     if not short_code or not short_code.strip():
-        raise ValueError("short_code is required")
+        short_code = _generate_short_code()
     if len(short_code.strip()) > 20:
         raise ValueError("short_code must be 20 characters or fewer")
     if not original_url or not original_url.strip():

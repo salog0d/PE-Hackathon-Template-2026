@@ -11,11 +11,11 @@
  *    5 % — event recording        (POST /events/)
  *
  * Ramp profile:
- *   0 → 25 VUs over  30 s  (warm up)
- *   25 VUs for        2 min (steady state)
- *   25 → 0 VUs over  30 s  (cool down)
+ *   0 → 200 VUs over  1 min  (warm up)
+ *   200 VUs for        2 min (steady state)
+ *   200 → 0 VUs over  30 s  (cool down)
  *
- * Total duration: ~3 min
+ * Total duration: ~3 min 30 s
  *
  * Run:
  *   k6 run load-tests/load.js
@@ -43,9 +43,9 @@ http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }, 404));
 
 export const options = {
   stages: [
-    { duration: "30s", target: 25 },   // ramp up
-    { duration: "2m",  target: 25 },   // steady state
-    { duration: "30s", target: 0  },   // ramp down
+    { duration: "1m",  target: 200 },  // ramp up
+    { duration: "2m",  target: 200 },  // steady state
+    { duration: "30s", target: 0   },  // ramp down
   ],
   thresholds: {
     ...SLO_THRESHOLDS,

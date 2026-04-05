@@ -22,6 +22,10 @@ def get_by_user(user_id: int):
     return event_repository.get_by_user(user_id)
 
 
+def get_by_event_type(event_type: str):
+    return event_repository.get_by_event_type(event_type)
+
+
 def create(url_id: int, user_id: int, event_type: str, details: str = None):
     if not url_id:
         raise ValueError("url_id is required")

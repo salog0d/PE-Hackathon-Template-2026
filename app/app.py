@@ -9,7 +9,7 @@ from flask import Flask, g, jsonify, request
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api import register_routes
-from app.database import check_db, init_db
+from app.database import check_db, db, init_db
 from app.logging_config import request_id_var, setup_logging
 from app.metrics import (
     http_errors_total,
@@ -32,6 +32,21 @@ def create_app():
     init_db(app)
 
     import_module("app.models")
+
+    # Auto-run pending migrations on every startup so a fresh DB is ready.
+    try:
+        from peewee_migrate import Router
+
+        with app.app_context():
+            db.connect(reuse_if_open=True)
+            router = Router(db, migrate_dir="app/database/migrations")
+            router.run()
+            if not db.is_closed():
+                db.close()
+    except Exception:
+        logger.exception("auto_migration_failed")
+
+    app.url_map.strict_slashes = False
 
     register_routes(app)
 

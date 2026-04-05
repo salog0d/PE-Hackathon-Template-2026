@@ -21,6 +21,10 @@ def get_by_user(user_id: int):
     return list(Event.select().where(Event.user_id == user_id))
 
 
+def get_by_event_type(event_type: str):
+    return list(Event.select().where(Event.event_type == event_type))
+
+
 def create(
     url_id: int, user_id: int, event_type: str, timestamp, details: str = None
 ) -> Event:

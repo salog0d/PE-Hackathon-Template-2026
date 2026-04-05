@@ -24,19 +24,31 @@ def list_urls():
         type: integer
         required: false
         description: Filter by user ID
+      - name: is_active
+        in: query
+        type: boolean
+        required: false
+        description: Filter by active status
     responses:
       200:
         description: List of URLs
     """
     user_id = request.args.get("user_id", type=int)
+    is_active_str = request.args.get("is_active")
+
     if user_id:
         urls = url_service.get_by_user(user_id)
         logger.info(
             "urls_listed_by_user", extra={"user_id": user_id, "count": len(urls)}
         )
-        return jsonify([serialize_url(u) for u in urls])
-    urls = url_service.get_all()
-    logger.info("urls_listed", extra={"count": len(urls)})
+    else:
+        urls = url_service.get_all()
+        logger.info("urls_listed", extra={"count": len(urls)})
+
+    if is_active_str is not None:
+        is_active = is_active_str.lower() in ("true", "1", "yes")
+        urls = [u for u in urls if u.is_active == is_active]
+
     return jsonify([serialize_url(u) for u in urls])
 
 
@@ -61,7 +73,7 @@ def get_url(url_id):
     url = url_service.get_by_id(url_id)
     if not url:
         logger.info("url_not_found", extra={"url_id": url_id})
-        return jsonify(error="Not found"), 404
+        return jsonify(error="url not found"), 404
     return jsonify(serialize_url(url))
 
 
@@ -86,7 +98,7 @@ def get_by_short_code(short_code):
     url = url_service.get_by_short_code(short_code)
     if not url:
         logger.info("url_not_found_by_code", extra={"short_code": short_code})
-        return jsonify(error="Not found"), 404
+        return jsonify(error="url not found"), 404
     return jsonify(serialize_url(url))
 
 
@@ -105,7 +117,6 @@ def create_url():
           type: object
           required:
             - user_id
-            - short_code
             - original_url
           properties:
             user_id:
@@ -139,7 +150,7 @@ def create_url():
     return jsonify(serialize_url(url)), 201
 
 
-@urls_bp.patch("/<int:url_id>")
+@urls_bp.route("/<int:url_id>", methods=["PATCH", "PUT"])
 def update_url(url_id):
     """
     Update a URL
@@ -186,7 +197,7 @@ def update_url(url_id):
         return jsonify(error=str(e)), 400
     if not updated:
         logger.info("url_update_not_found", extra={"url_id": url_id})
-        return jsonify(error="Not found"), 404
+        return jsonify(error="url not found"), 404
     logger.info("url_update_succeeded", extra={"url_id": url_id})
     return jsonify(serialize_url(url_service.get_by_id(url_id)))
 
@@ -212,6 +223,6 @@ def delete_url(url_id):
     logger.info("url_delete_requested", extra={"url_id": url_id})
     if not url_service.delete(url_id):
         logger.info("url_delete_not_found", extra={"url_id": url_id})
-        return jsonify(error="Not found"), 404
+        return jsonify(error="url not found"), 404
     logger.info("url_delete_succeeded", extra={"url_id": url_id})
     return "", 204

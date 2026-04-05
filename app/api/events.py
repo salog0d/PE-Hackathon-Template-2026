@@ -1,3 +1,4 @@
+import json
 import logging
 
 from flask import Blueprint, jsonify, request
@@ -28,26 +29,39 @@ def list_events():
         type: integer
         required: false
         description: Filter by user ID
+      - name: event_type
+        in: query
+        type: string
+        required: false
+        description: Filter by event type
     responses:
       200:
         description: List of events
     """
     url_id = request.args.get("url_id", type=int)
     user_id = request.args.get("user_id", type=int)
+    event_type = request.args.get("event_type")
+
     if url_id:
         events = event_service.get_by_url(url_id)
         logger.info(
             "events_listed_by_url", extra={"url_id": url_id, "count": len(events)}
         )
-        return jsonify([serialize_event(e) for e in events])
-    if user_id:
+    elif user_id:
         events = event_service.get_by_user(user_id)
         logger.info(
             "events_listed_by_user", extra={"user_id": user_id, "count": len(events)}
         )
-        return jsonify([serialize_event(e) for e in events])
-    events = event_service.get_all()
-    logger.info("events_listed", extra={"count": len(events)})
+    elif event_type:
+        events = event_service.get_by_event_type(event_type)
+        logger.info(
+            "events_listed_by_type",
+            extra={"event_type": event_type, "count": len(events)},
+        )
+    else:
+        events = event_service.get_all()
+        logger.info("events_listed", extra={"count": len(events)})
+
     return jsonify([serialize_event(e) for e in events])
 
 
@@ -72,7 +86,7 @@ def get_event(event_id):
     event = event_service.get_by_id(event_id)
     if not event:
         logger.info("event_not_found", extra={"event_id": event_id})
-        return jsonify(error="Not found"), 404
+        return jsonify(error="event not found"), 404
     return jsonify(serialize_event(event))
 
 
@@ -109,6 +123,9 @@ def create_event():
         description: Validation error
     """
     data = request.get_json()
+    # Stringify details if it arrives as a JSON object
+    if isinstance(data.get("details"), dict):
+        data = dict(data, details=json.dumps(data["details"]))
     logger.info(
         "event_create_requested",
         extra={
@@ -126,7 +143,7 @@ def create_event():
     return jsonify(serialize_event(event)), 201
 
 
-@events_bp.patch("/<int:event_id>")
+@events_bp.route("/<int:event_id>", methods=["PATCH", "PUT"])
 def update_event(event_id):
     """
     Update an event
@@ -157,6 +174,8 @@ def update_event(event_id):
         description: Event not found
     """
     data = request.get_json()
+    if isinstance(data.get("details"), dict):
+        data = dict(data, details=json.dumps(data["details"]))
     logger.info(
         "event_update_requested",
         extra={"event_id": event_id, "fields": list(data.keys())},
@@ -171,7 +190,7 @@ def update_event(event_id):
         return jsonify(error=str(e)), 400
     if not updated:
         logger.info("event_update_not_found", extra={"event_id": event_id})
-        return jsonify(error="Not found"), 404
+        return jsonify(error="event not found"), 404
     logger.info("event_update_succeeded", extra={"event_id": event_id})
     return jsonify(serialize_event(event_service.get_by_id(event_id)))
 
@@ -197,6 +216,6 @@ def delete_event(event_id):
     logger.info("event_delete_requested", extra={"event_id": event_id})
     if not event_service.delete(event_id):
         logger.info("event_delete_not_found", extra={"event_id": event_id})
-        return jsonify(error="Not found"), 404
+        return jsonify(error="event not found"), 404
     logger.info("event_delete_succeeded", extra={"event_id": event_id})
     return "", 204
