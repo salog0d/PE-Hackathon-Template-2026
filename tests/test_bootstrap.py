@@ -69,6 +69,8 @@ def test_init_db_registers_hooks_and_uses_config(monkeypatch):
         "port": 5433,
         "user": "dbuser",
         "password": "dbpass",
+        "max_connections": 20,
+        "stale_timeout": 300,
     }
     assert fake_db.initialized_with is not None
     assert fake_db.connect_kwargs == {"reuse_if_open": True}
