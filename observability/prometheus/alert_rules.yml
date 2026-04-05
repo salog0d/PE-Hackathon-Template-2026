@@ -1,0 +1,76 @@
+groups:
+  - name: url-service
+    rules:
+
+      # ------------------------------------------------------------------ #
+      # Service availability                                                 #
+      # ------------------------------------------------------------------ #
+
+      - alert: ServiceDown
+        expr: up{job="url-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "url-service is down"
+          description: "Prometheus cannot scrape url-service. The instance has been unreachable for more than 1 minute."
+
+      # ------------------------------------------------------------------ #
+      # Database health                                                      #
+      # ------------------------------------------------------------------ #
+
+      - alert: DatabaseDown
+        expr: db_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database is unreachable"
+          description: "db_up has been 0 for more than 1 minute. The application cannot reach PostgreSQL."
+
+      # ------------------------------------------------------------------ #
+      # Error rate                                                           #
+      # ------------------------------------------------------------------ #
+
+      - alert: HighErrorRate
+        expr: >
+          (
+            sum(rate(http_errors_total[2m]))
+            /
+            sum(rate(http_requests_total[2m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "More than 5% of requests are returning 5xx errors over the last 2 minutes (current: {{ printf \"%.1f%%\" $value }})."
+
+      # ------------------------------------------------------------------ #
+      # Latency                                                              #
+      # ------------------------------------------------------------------ #
+
+      - alert: HighLatencyP95
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency is above 500 ms"
+          description: "The 95th-percentile request latency has exceeded 500 ms for 5 minutes (current: {{ printf \"%.3f\" $value }} s)."
+
+      # ------------------------------------------------------------------ #
+      # In-flight requests                                                   #
+      # ------------------------------------------------------------------ #
+
+      - alert: HighRequestsInFlight
+        expr: http_requests_in_progress > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many in-flight requests"
+          description: "{{ $value }} requests are currently in progress — above the threshold of 50 for 2 minutes."
