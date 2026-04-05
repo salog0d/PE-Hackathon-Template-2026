@@ -60,6 +60,9 @@ def create_app():
         if request.path == "/metrics":
             return response
 
+        if not hasattr(g, "request_start"):
+            return response
+
         elapsed = time.perf_counter() - g.request_start
         latency_ms = round(elapsed * 1000, 2)
 
